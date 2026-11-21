@@ -5,8 +5,7 @@ last 7 days, using 5 years (2020–2024) of data combined from **Open-Meteo** an
 
 | | Link |
 |---|---|
-| 🚀 Live app (Streamlit Community Cloud) | `https://<your-app-name>.streamlit.app` |
-| 🤖 Model + model card (Hugging Face Hub) | https://huggingface.co/javeriairfan/rainfall-prediction-pakistan |
+| 🚀 Live app (Streamlit Community Cloud) | https://raincast-pakistan.streamlit.app |
 
 ---
 
@@ -43,14 +42,14 @@ Full provenance (collection method, licences, download date) is in [`data/README
 4. **Models:** dummy and persistence baselines, plus Logistic Regression, KNN, Random Forest and SVM (RBF kernel).
 5. **Tuning:** `RandomizedSearchCV` with 5-fold forward-chaining time-series CV.
 6. **Evaluation:** F1 / precision / recall / ROC-AUC / PR-AUC, threshold tuned on validation, test set used once, learning curve, error analysis, permutation importance.
-7. **Saving:** `models/rainfall_pipeline.joblib` + metadata + model card; versions pinned in `requirements.txt`.
+7. **Saving:** `models/rainfall_pipeline.joblib` + metadata; versions pinned in `requirements.txt`.
 
 ## Repository structure
 ```
 data/            README.md (data documentation) · weather_pakistan.csv · dataset_info.json  (raw/ is git-ignored)
 src/             download_data.py (collects + merges the two sources) · rainfall_features.py (shared feature code)
 notebooks/       rainfall_prediction.ipynb (EDA → model → evaluation → saving)
-models/          rainfall_pipeline.joblib · model_metadata.json · MODEL_CARD.md · result tables
+models/          rainfall_pipeline.joblib · model_metadata.json · result tables
 reports/figures/ all plots used in the report
 app/             app.py (Streamlit page) · ui.py (cards, charts, styling) · predictor.py (model, live weather, explanations)
                  requirements.txt (what Streamlit Community Cloud installs)
@@ -58,7 +57,7 @@ app/             app.py (Streamlit page) · ui.py (cards, charts, styling) · pr
 requirements.txt
 ```
 
-## Setup and running (Windows, macOS or Linux; Python 3.12 or 3.13)
+## Setup and running (Windows, macOS or Linux; Python 3.13)
 ```bash
 # 1. environment
 python -m venv .venv
@@ -76,7 +75,7 @@ streamlit run app/app.py
 ```
 
 ## Deployment — Streamlit Community Cloud
-- **Live app:** deployed from this GitHub repository on Streamlit Community Cloud (free), entrypoint
+- **Live app:** https://raincast-pakistan.streamlit.app, deployed from this GitHub repository on Streamlit Community Cloud (free), entrypoint
   `app/app.py`, Python 3.13. Streamlit Cloud installs the pinned versions in `app/requirements.txt`, the same
   versions used for training, so the saved pipeline loads correctly.
 - **The app has four tabs:**
@@ -87,7 +86,6 @@ streamlit run app/app.py
 
   Each prediction shows the rain probability against the decision threshold, farm advice, and a chart explaining
   which inputs pushed the prediction towards rain or dry weather.
-- **Model card:** the trained pipeline and its model card are also published on the Hugging Face Hub (link above).
 
 ## Results
 **Best model:** Random Forest. Decision threshold 0.57, tuned for F1 on the 2023 validation year.
@@ -107,13 +105,6 @@ Validation (2023), F1 at threshold 0.5:
 | K-Nearest Neighbours | 0.455 | 0.864 | 0.587 |
 | Baseline: Persistence | 0.533 | 0.714 | 0.371 |
 | Baseline: Dummy (stratified) | 0.143 | 0.480 | 0.180 |
-
-## Team and contributions
-| Member | Roll no. | Contribution |
-|---|---|---|
-| | | |
-| | | |
-| | | |
 
 ## References
 - Zippenfenig, P. (2023). *Open-Meteo.com Weather API*. Zenodo. doi:10.5281/zenodo.7970649

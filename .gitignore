@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+# raw API responses are large and can be re-downloaded with src/download_data.py
+data/raw/

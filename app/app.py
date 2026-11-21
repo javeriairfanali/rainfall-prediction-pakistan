@@ -75,18 +75,17 @@ DEFAULT_CITY = "Lahore" if "Lahore" in CITIES else CITIES[0]
 show(ui.hero(P))
 
 tab_live, tab_compare, tab_manual, tab_about = st.tabs(
-    ["🌦️ Live forecast", "🗺️ Compare cities", "✍️ Manual input", "📊 About the model"])
+    ["Live forecast", "Compare cities", "Manual input", "About the model"])
 
 # ----------------------------------------------------------------------------- 1. live forecast
 with tab_live:
     left, right = st.columns([4, 7], gap="large")
     with left:
         city = st.segmented_control(
-            "Choose a city", CITIES, default=DEFAULT_CITY, key="live_city",
-            format_func=lambda c: f"{ui.CITY_META.get(c, ('📍', ''))[0]} {c}")
+            "Choose a city", CITIES, default=DEFAULT_CITY, key="live_city")
         city = city or DEFAULT_CITY
-        emoji, region = ui.CITY_META.get(city, ("📍", ""))
-        st.caption(f"{emoji} {region}")
+        region = ui.CITY_META.get(city, "")
+        st.caption(region)
         st.caption("Today's observed + forecast weather and the past 7 days are fetched live from "
                    "Open-Meteo to predict **tomorrow** (rain = at least 1 mm).")
     with right:
@@ -95,7 +94,7 @@ with tab_live:
                 X, day, hist, shown = live_weather(city)
             p = P.predict(X)
             tomorrow = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%A, %d %B %Y")
-            show(ui.verdict_card(p, P.threshold, f"{emoji} {city} · {region}", f"Forecast for {tomorrow}")
+            show(ui.verdict_card(p, P.threshold, f"{city} · {region}", f"Forecast for {tomorrow}")
                  + ui.tiles(shown) + ui.history_bars(hist))
             st.pyplot(ui.explain_plot(P, X))
         except requests.RequestException:
@@ -179,8 +178,7 @@ with tab_manual:
         elif "errors" in res:
             st.error("Please fix these inputs:\n\n" + "\n".join(f"- {e}" for e in res["errors"]))
         else:
-            emoji, _ = ui.CITY_META.get(res["city"], ("📍", ""))
-            show(ui.verdict_card(res["p"], P.threshold, f"{emoji} {res['city']} · {ui.MONTHS[res['month']]}",
+            show(ui.verdict_card(res["p"], P.threshold, f"{res['city']} · {ui.MONTHS[res['month']]}",
                                  "Based on the values you entered") + ui.tiles(res["shown"]))
             st.pyplot(ui.explain_plot(P, res["X"]))
 

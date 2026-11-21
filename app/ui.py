@@ -19,10 +19,10 @@ from predictor import LABELS
 RAIN, DRY = "#38bdf8", "#fbbf24"
 MONTHS = {m: calendar.month_name[m] for m in range(1, 13)}
 CITY_META = {
-    "Karachi": ("🌊", "Lower Sindh · coastal farming"),
-    "Lahore": ("🌾", "Punjab · irrigated plains"),
-    "Islamabad": ("⛰️", "Pothohar · rain-fed (barani) farming"),
-    "Quetta": ("🍎", "Balochistan · orchards"),
+    "Karachi": "Lower Sindh · coastal farming",
+    "Lahore": "Punjab · irrigated plains",
+    "Islamabad": "Pothohar · rain-fed (barani) farming",
+    "Quetta": "Balochistan · orchards",
 }
 
 
@@ -180,12 +180,12 @@ def compare_html(results: list[tuple[str, float, dict]], thr: float, when: str, 
     results = sorted(results, key=lambda r: r[1], reverse=True)
     cards = []
     for rank, (city, p, v) in enumerate(results, 1):
-        emoji, region = CITY_META.get(city, ("📍", ""))
+        region = CITY_META.get(city, "")
         rain = p >= thr
         cards.append(f"""
 <div class='rc-cmp {'is-rain' if rain else 'is-dry'}'>
   <div class='rc-cmp-rank'>#{rank}</div>
-  <div class='rc-cmp-head'><div class='rc-cmp-city'>{emoji} {city}</div><div class='rc-cmp-region'>{region}</div></div>
+  <div class='rc-cmp-head'><div class='rc-cmp-city'>{city}</div><div class='rc-cmp-region'>{region}</div></div>
   <div class='rc-cmp-p'>{p:.0%}<span>chance of rain</span></div>
   <div class='rc-cmp-v'>{'🌧️ Rain likely' if rain else '☀️ No rain expected'}</div>
   <div class='rc-cmp-track'><div class='rc-cmp-fill' style='width:{p * 100:.0f}%'></div>
@@ -428,5 +428,14 @@ a {color:#7dd3fc;}
   .rc-result {flex-direction:column; text-align:center;}
   .rc-pills {justify-content:center;}
   .rc-hero h1 {font-size:2.1rem;}
+  .rc-stats {width:100%; grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width: 560px) {
+  .rc-hero {padding:24px 20px;}
+  .rc-hero h1 {font-size:1.8rem;}
+  .rc-cmps {grid-template-columns:1fr;}
+  .rc-stat {padding:10px 8px;}
+  .rc-stat b {font-size:1.25rem;}
+  .rc-stat span {white-space:nowrap; font-size:.7rem;}
 }
 """

@@ -7,7 +7,6 @@ loading the model, building an input row, live weather, prediction and explanati
 from __future__ import annotations
 
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +29,6 @@ from rainfall_features import (
 )
 
 HERE = Path(__file__).resolve().parent
-MODEL_REPO = os.environ.get("MODEL_REPO", "")  # e.g. "your-username/rainfall-prediction-pakistan"
 MODEL_FILE = "rainfall_pipeline.joblib"
 META_FILE = "model_metadata.json"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -64,17 +62,11 @@ ELEVATION_HINT = {  # used only if the city-month median table lacks elevation
 
 
 def _locate(name: str) -> Path:
-    """Model files: the Hugging Face Hub repo in MODEL_REPO if set, otherwise the local models/ folder."""
-    if MODEL_REPO:
-        try:
-            from huggingface_hub import hf_hub_download
-            return Path(hf_hub_download(MODEL_REPO, name))
-        except Exception as e:  # network or repo problem -> local fallback
-            print(f"[predictor] Hub download of {name} failed ({e}); trying local copy")
+    """Model files live in the project's models/ folder."""
     for p in (HERE / name, HERE.parent / "models" / name):
         if p.exists():
             return p
-    raise FileNotFoundError(f"{name} not found on the Hub ({MODEL_REPO or 'MODEL_REPO not set'}) or locally")
+    raise FileNotFoundError(f"{name} not found in the models/ folder")
 
 
 class RainPredictor:
