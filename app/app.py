@@ -1,17 +1,3 @@
-"""
-RainCast Pakistan - Streamlit app
-Predicts whether it will rain tomorrow in Karachi, Lahore, Islamabad or Quetta.
-
-Run locally (from the project folder):   streamlit run app/app.py
-Deployed on Streamlit Community Cloud with app/app.py as the entrypoint.
-
-Tabs
-  1. Live forecast   - pick a city; today's weather + last 7 days come from Open-Meteo
-  2. Compare cities  - tomorrow's chance of rain for all 4 cities, ranked
-  3. Manual input    - type the weather yourself (validated form)
-  4. About the model - metrics, features, data sources, evaluation figures
-"""
-
 from __future__ import annotations
 
 import sys
@@ -21,19 +7,19 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
-import pandas as pd  # noqa: E402
-import requests  # noqa: E402
-import streamlit as st  # noqa: E402
+import pandas as pd
+import requests
+import streamlit as st
 
 st.set_page_config(page_title="RainCast Pakistan — will it rain tomorrow?", page_icon="🌧️", layout="wide")
 
-import ui  # noqa: E402
-from predictor import RainPredictor, now_pkt, validate_manual  # noqa: E402
+import ui
+from predictor import RainPredictor, now_pkt, validate_manual
 
 FIGURES = ROOT / "reports" / "figures"
 
 
-# ----------------------------------------------------------------------------- loading (cached)
+# load the saved model once and reuse it
 @st.cache_resource(show_spinner="Loading the model…")
 def load_predictor() -> RainPredictor:
     return RainPredictor()
@@ -42,29 +28,29 @@ def load_predictor() -> RainPredictor:
 try:
     P = load_predictor()
     LOAD_ERROR = None
-except Exception as e:  # show a clear message instead of a crashed app
+except Exception as e:
     P, LOAD_ERROR = None, f"{type(e).__name__}: {e}"
 
 
+# fetch live weather for a city, refreshed every 15 minutes
 @st.cache_data(ttl=900, show_spinner=False)
 def live_weather(city: str):
-    """Today's weather + last 7 days for one city (cached 15 minutes)."""
     return P.live_row(city)
 
 
+# render our HTML cards on the page
 def show(h: str) -> None:
     st.html(ui.compact(h))
 
 
+# make buttons full width on any Streamlit version
 def stretch(widget, *args, **kwargs):
-    """Full-width widgets on any recent Streamlit version."""
     try:
         return widget(*args, width="stretch", **kwargs)
     except TypeError:
         return widget(*args, **kwargs)
 
 
-# ----------------------------------------------------------------------------- page
 st.html(f"<style>{ui.CSS}</style>")
 if P is None:
     st.error(f"Model could not be loaded: {LOAD_ERROR}")
@@ -74,12 +60,12 @@ CITIES = P.cities
 DEFAULT_CITY = "Lahore" if "Lahore" in CITIES else CITIES[0]
 show(ui.hero(P))
 
+# the four tabs of the app
 tab_live, tab_compare, tab_manual, tab_about = st.tabs(
     ["Live forecast", "Compare cities", "Manual input", "About the model"])
 
-# ----------------------------------------------------------------------------- 1. live forecast
+# tab 1: live prediction for one city
 with tab_live:
-    # city picker across the top, then results in two balanced columns
     city = st.segmented_control(
         "Choose a city", CITIES, default=DEFAULT_CITY, key="live_city")
     city = city or DEFAULT_CITY
@@ -102,7 +88,7 @@ with tab_live:
         st.error("Couldn't reach the live weather service (Open-Meteo). Please try again in a minute, "
                  "or use the Manual input tab.")
 
-# ----------------------------------------------------------------------------- 2. compare cities
+# tab 2: tomorrow's rain chance for all cities
 with tab_compare:
     st.caption("Tomorrow's chance of rain for every city, using today's live weather. "
                "Cities are ranked from wettest to driest.")
@@ -120,7 +106,7 @@ with tab_compare:
     else:
         st.error("Couldn't reach the live weather service (Open-Meteo). Please try again in a minute.")
 
-# ----------------------------------------------------------------------------- 3. manual input
+# tab 3: user enters today's weather by hand
 with tab_manual:
     left, right = st.columns([6, 5], gap="large")
     with left:
@@ -130,7 +116,7 @@ with tab_manual:
                                format_func=ui.MONTHS.get, key="m_month")
         st.caption("The form starts with typical values for the chosen city and month — change any of them.")
         d = ui.typical_values(P, m_city, m_month)
-        k = f"{m_city}_{m_month}"  # new city/month -> fresh typical defaults
+        k = f"{m_city}_{m_month}"
 
         def clip(v, lo, hi):
             return float(min(max(v, lo), hi))
@@ -183,7 +169,7 @@ with tab_manual:
                                  "Based on the values you entered") + ui.tiles(res["shown"]))
             st.pyplot(ui.explain_plot(P, res["X"]))
 
-# ----------------------------------------------------------------------------- 4. about
+# tab 4: model details, scores and plots
 with tab_about:
     show(ui.about_html(P))
     figs = [("09_roc_pr_curves.png", "ROC and precision–recall curves (validation 2023)"),

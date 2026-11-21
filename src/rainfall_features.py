@@ -1,19 +1,3 @@
-"""
-rainfall_features.py
-====================
-Shared code for the RainCast Pakistan rainfall prediction project.
-
-This one module is imported by:
-  * src/download_data.py          (building the dataset)
-  * notebooks/rainfall_prediction (training the model)
-  * app/app.py + app/predictor.py (the Streamlit app)
-
-Keeping it in ONE place guarantees that the features the model sees at
-prediction time are computed exactly like the features it was trained on.
-The saved joblib pipeline also refers to the classes below by the module
-name `rainfall_features`, so the app must be able to import it (predictor.py adds src/ to the path).
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -24,11 +8,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-# ---------------------------------------------------------------------------
-# 1. Study area: 4 Pakistani cities with contrasting climates -
-#    Karachi (coastal, dry), Lahore (monsoon plains), Islamabad (wettest, foothills),
-#    Quetta (mountain plateau, winter rain from western disturbances).
-# ---------------------------------------------------------------------------
 CITIES: dict[str, tuple[float, float]] = {
     "Karachi": (24.8607, 67.0011),
     "Quetta": (30.1798, 66.9750),
@@ -36,12 +15,10 @@ CITIES: dict[str, tuple[float, float]] = {
     "Islamabad": (33.6844, 73.0479),
 }
 
-RAIN_THRESHOLD_MM = 1.0  # WMO convention: a "rain day" has >= 1 mm
+# a day counts as rainy if it gets at least 1 mm
+RAIN_THRESHOLD_MM = 1.0
 
-# ---------------------------------------------------------------------------
-# 2. Raw variables requested from each source
-# ---------------------------------------------------------------------------
-# Source 1 - Open-Meteo Historical Weather API (ERA5 reanalysis), daily
+# daily variables downloaded from Open-Meteo
 OM_DAILY_VARS = [
     "temperature_2m_max",
     "temperature_2m_min",
@@ -56,27 +33,24 @@ OM_DAILY_VARS = [
     "et0_fao_evapotranspiration",
     "sunshine_duration",
 ]
-# Source 1 - hourly variables, aggregated to daily statistics by us
+# hourly Open-Meteo variables, averaged to daily values
 OM_HOURLY_VARS = ["relative_humidity_2m", "dew_point_2m", "pressure_msl", "cloud_cover"]
 
-# Source 2 - NASA POWER daily point API (MERRA-2 / CERES), max 20 per request
+# daily variables downloaded from NASA POWER
 NASA_PARAMS = [
-    "T2M",                # temperature at 2 m (C)
-    "T2MDEW",             # dew/frost point at 2 m (C)
-    "RH2M",               # relative humidity at 2 m (%)
-    "QV2M",               # specific humidity at 2 m (g/kg)
-    "PS",                 # surface pressure (kPa)
-    "WS2M",               # wind speed at 2 m (m/s)
-    "WS10M",              # wind speed at 10 m (m/s)
-    "CLOUD_AMT",          # cloud amount (%)
-    "ALLSKY_SFC_SW_DWN",  # all-sky surface shortwave (kWh/m2/day)
-    "PRECTOTCORR",        # bias-corrected precipitation (mm/day)
+    "T2M",
+    "T2MDEW",
+    "RH2M",
+    "QV2M",
+    "PS",
+    "WS2M",
+    "WS10M",
+    "CLOUD_AMT",
+    "ALLSKY_SFC_SW_DWN",
+    "PRECTOTCORR",
 ]
 NASA_COLS = ["nasa_" + p.lower() for p in NASA_PARAMS]
 
-# ---------------------------------------------------------------------------
-# 3. Feature lists used by the model
-# ---------------------------------------------------------------------------
 HOURLY_AGG_COLS = [
     "rh_mean", "rh_max", "rh_min",
     "dew_point_mean",
@@ -84,28 +58,24 @@ HOURLY_AGG_COLS = [
     "cloud_cover_mean",
 ]
 
+# features built from previous days
 HISTORY_COLS = [
-    "precip_lag1",          # yesterday's precipitation (mm)
-    "precip_3d_sum",        # precipitation over the last 3 days incl. today
-    "precip_7d_sum",        # precipitation over the last 7 days incl. today
-    "rain_days_7d",         # number of rain days in the last 7 days
-    "pressure_change_24h",  # today's mean pressure - yesterday's
-    "rh_change_24h",        # today's mean humidity - yesterday's
-    "temp_change_24h",      # today's mean temperature - yesterday's
+    "precip_lag1",
+    "precip_3d_sum",
+    "precip_7d_sum",
+    "rain_days_7d",
+    "pressure_change_24h",
+    "rh_change_24h",
+    "temp_change_24h",
 ]
 
-# Every column we collect/derive (40 features) - saved in data/weather_pakistan_all_features.csv
+# all 40 collected features
 ALL_NUMERIC = (
     OM_DAILY_VARS + HOURLY_AGG_COLS + NASA_COLS + HISTORY_COLS
     + ["elevation", "month", "day_of_year"]
 )
 
-# Feature selection -> 16 model features (15 numeric + city), chosen ONLY from the training years
-# (2020-2022) so the validation/test years cannot influence the choice. Rule (see notebook section 1.1):
-#   1. permutation importance of a Random Forest fitted on 2020-2021 and scored on 2022 (avg of 3 seeds)
-#   2. walk down the ranking; skip a feature with |r| >= 0.9 to one already chosen (training-year correlation)
-#   3. stop when importance is no longer positive
-#   4. `city` and `month` are always kept (seasonality differs by city)
+# the 16 features kept after feature selection on training years
 SELECTED_NUMERIC = [
     "month",
     "nasa_cloud_amt", "nasa_prectotcorr", "pressure_change_24h", "precip_3d_sum", "nasa_qv2m",
@@ -114,25 +84,21 @@ SELECTED_NUMERIC = [
 ]
 RAW_NUMERIC = SELECTED_NUMERIC
 CATEGORICAL = ["city"]
-INPUT_COLUMNS = CATEGORICAL + RAW_NUMERIC   # 16 features
+INPUT_COLUMNS = CATEGORICAL + RAW_NUMERIC
 
-# Columns created INSIDE the pipeline by WeatherFeatureEngineer
+# extra features created inside the pipeline
 ENGINEERED = [
-    "month_sin", "month_cos",   # cyclical month: December sits next to January
-    "is_monsoon",           # July-September
-    "rained_today",         # today's precipitation >= 1 mm
+    "month_sin", "month_cos",
+    "is_monsoon",
+    "rained_today",
 ]
 MODEL_NUMERIC = [c for c in RAW_NUMERIC if c != "month"] + ENGINEERED
 
 TARGET = "rain_tomorrow"
 
 
-# ---------------------------------------------------------------------------
-# 4. Helpers used when building the dataset AND in the live app
-# ---------------------------------------------------------------------------
+# turn hourly data into daily averages
 def aggregate_hourly(hourly: pd.DataFrame) -> pd.DataFrame:
-    """Turn an hourly Open-Meteo frame (column 'time' + OM_HOURLY_VARS) into
-    one row per local day with the statistics in HOURLY_AGG_COLS."""
     h = hourly.copy()
     h["date"] = pd.to_datetime(h["time"]).dt.normalize()
     g = h.groupby("date")
@@ -148,9 +114,8 @@ def aggregate_hourly(hourly: pd.DataFrame) -> pd.DataFrame:
     return out.reset_index()
 
 
+# rain and change features from the past few days
 def add_history_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add look-back features per city. Every value uses ONLY today and
-    earlier days, so nothing from the future leaks into the inputs."""
     df = df.sort_values(["city", "date"]).copy()
     g = df.groupby("city", group_keys=False)
     p = df["precipitation_sum"]
@@ -168,9 +133,8 @@ def add_history_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# target: does it rain tomorrow (1) or not (0)
 def add_target(df: pd.DataFrame) -> pd.DataFrame:
-    """rain_tomorrow = 1 if NEXT day's precipitation >= 1 mm (per city).
-    The last day of each city has no 'tomorrow' and is dropped."""
     df = df.sort_values(["city", "date"]).copy()
     nxt = df.groupby("city")["precipitation_sum"].shift(-1)
     df[TARGET] = (nxt >= RAIN_THRESHOLD_MM).astype("float")
@@ -178,18 +142,14 @@ def add_target(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna(subset=[TARGET]).assign(**{TARGET: lambda d: d[TARGET].astype(int)})
 
 
+# specific humidity from dew point and pressure
 def specific_humidity_gkg(dew_c: float, pressure_hpa: float) -> float:
-    """Specific humidity (g/kg) from dew point (C) and pressure (hPa),
-    Magnus formula. Used by the live app to approximate NASA QV2M."""
     e = 6.112 * np.exp(17.67 * dew_c / (dew_c + 243.5))
     return 622.0 * e / (pressure_hpa - 0.378 * e)
 
 
-# ---------------------------------------------------------------------------
-# 5. Custom scikit-learn transformers (fitted on TRAINING data only)
-# ---------------------------------------------------------------------------
+# adds month sin/cos, monsoon flag and rained today
 class WeatherFeatureEngineer(BaseEstimator, TransformerMixin):
-    """Row-wise feature engineering. Stateless, so it cannot leak."""
 
     def fit(self, X, y=None):
         return self
@@ -205,9 +165,8 @@ class WeatherFeatureEngineer(BaseEstimator, TransformerMixin):
         return X
 
 
+# clips extreme values to the 1st-99th percentile of training data
 class QuantileClipper(BaseEstimator, TransformerMixin):
-    """Outlier treatment (winsorising): learns the 1st and 99th percentile of
-    each numeric column on the TRAINING data and clips new data to that range."""
 
     def __init__(self, lower: float = 0.01, upper: float = 0.99):
         self.lower = lower
@@ -221,9 +180,10 @@ class QuantileClipper(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         X = np.asarray(X, dtype=float)
-        return np.clip(X, self.lo_, self.hi_)  # NaN stays NaN for the imputer
+        return np.clip(X, self.lo_, self.hi_)
 
 
+# clip, impute and scale numbers; one-hot encode city
 def build_preprocessor() -> ColumnTransformer:
     numeric = Pipeline([
         ("clip_outliers", QuantileClipper(0.01, 0.99)),
@@ -241,8 +201,8 @@ def build_preprocessor() -> ColumnTransformer:
     )
 
 
+# full pipeline: feature engineering + preprocessing + model
 def build_pipeline(model) -> Pipeline:
-    """feature engineering -> clip/impute/scale/encode -> classifier."""
     return Pipeline([
         ("features", WeatherFeatureEngineer()),
         ("preprocess", build_preprocessor()),

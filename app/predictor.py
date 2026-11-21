@@ -1,9 +1,3 @@
-"""
-predictor.py - everything the app does EXCEPT the user interface:
-loading the model, building an input row, live weather, prediction and explanation.
-(Kept separate from the user interface so it can be tested on its own.)
-"""
-
 from __future__ import annotations
 
 import json
@@ -17,12 +11,11 @@ import numpy as np
 import pandas as pd
 import requests
 
-# rainfall_features.py lives in ../src (or next to this file, if copied there)
 _SRC = Path(__file__).resolve().parent.parent / "src"
 if not (Path(__file__).resolve().parent / "rainfall_features.py").exists() and _SRC.exists():
     sys.path.insert(0, str(_SRC))
 
-import rainfall_features as rf  # noqa: F401  (needed so joblib can rebuild the pipeline)
+import rainfall_features as rf
 from rainfall_features import (
     CITIES, INPUT_COLUMNS, OM_DAILY_VARS, OM_HOURLY_VARS, RAIN_THRESHOLD_MM,
     add_history_features, aggregate_hourly, specific_humidity_gkg,
@@ -34,7 +27,7 @@ META_FILE = "model_metadata.json"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 PKT = ZoneInfo("Asia/Karachi")
 
-# Friendly names shown in the explanation chart
+# readable names for features in the explanation chart
 LABELS = {
     "temperature_2m_max": "Max temperature", "temperature_2m_min": "Min temperature",
     "temperature_2m_mean": "Mean temperature", "precipitation_sum": "Rain today",
@@ -55,20 +48,21 @@ LABELS = {
     "elevation": "Elevation", "month": "Month", "day_of_year": "Day of year", "city": "City",
 }
 
-ELEVATION_HINT = {  # used only if the city-month median table lacks elevation
+ELEVATION_HINT = {
     "Karachi": 10, "Hyderabad": 20, "Quetta": 1680, "Multan": 125, "Faisalabad": 185,
     "Lahore": 215, "Sialkot": 255, "Islamabad": 540, "Peshawar": 340, "Muzaffarabad": 740,
 }
 
 
+# find the model files in the models folder
 def _locate(name: str) -> Path:
-    """Model files live in the project's models/ folder."""
     for p in (HERE / name, HERE.parent / "models" / name):
         if p.exists():
             return p
     raise FileNotFoundError(f"{name} not found in the models/ folder")
 
 
+# loads the model and does all prediction work for the app
 class RainPredictor:
     def __init__(self):
         self.model = joblib.load(_locate(MODEL_FILE))
@@ -78,27 +72,26 @@ class RainPredictor:
         imp = self.meta.get("feature_importance", [])
         self.top_features = [d["feature"] for d in imp if d["feature"] not in ("month", "day_of_year")][:12]
 
-    # ------------------------------------------------------------ defaults
+    # median value of each feature for a city and month
     def typical(self, city: str, month: int) -> dict:
-        """Median value of every input for this city and month in the training years."""
         base = dict(self.meta.get("train_medians", {}))
         base.update(self.meta.get("monthly_medians", {}).get(f"{city}|{month}", {}))
         base.setdefault("elevation", ELEVATION_HINT.get(city, np.nan))
         return base
 
+    # build one input row in the format the model expects
     def row(self, city: str, month: int, day_of_year: int, values: dict) -> pd.DataFrame:
         r = self.typical(city, month)
         r.update({k: v for k, v in values.items() if v is not None})
         r.update({"city": city, "month": month, "day_of_year": day_of_year})
         X = pd.DataFrame([{c: r.get(c, np.nan) for c in INPUT_COLUMNS}])
         num = [c for c in INPUT_COLUMNS if c != "city"]
-        X[num] = X[num].astype(float)  # e.g. wind direction typed as an integer
+        X[num] = X[num].astype(float)
         return X
 
-    # ------------------------------------------------------------ manual input
+    # input row from the manual form values
     def manual_row(self, city, month, tmax, humidity, dew, pressure, pressure_change, clouds,
                    wind, wind_dir, rain_today, rain_3d, rain_7d):
-        """Returns (X for the model, dict of everything to display)."""
         doy = int(pd.Timestamp(2023, month, 15).dayofyear)
         vals = {
             "temperature_2m_max": tmax, "rh_mean": humidity, "dew_point_mean": dew,
@@ -106,16 +99,11 @@ class RainPredictor:
             "wind_speed_10m_max": wind, "wind_direction_10m_dominant": wind_dir,
             "precipitation_sum": rain_today, "precip_3d_sum": rain_3d, "precip_7d_sum": rain_7d,
         }
-        vals.update(self.nasa_from_openmeteo(city, month, vals))  # second-source (NASA POWER) inputs
+        vals.update(self.nasa_from_openmeteo(city, month, vals))
         return self.row(city, month, doy, vals), vals
 
+    # estimate NASA values from today's Open-Meteo values
     def nasa_from_openmeteo(self, city: str, month: int, om: dict) -> dict:
-        """Estimate the 4 NASA POWER inputs from Open-Meteo values.
-
-        The two sources measure on slightly different scales (e.g. NASA cloud amount is usually higher), so
-        copying values across would make an ordinary day look unusual. We use the delta method: start from the
-        typical NASA value for this city and month, and add how far today's Open-Meteo value is from ITS typical
-        value:  nasa_today = nasa_typical + (om_today - om_typical)."""
         typ = self.typical(city, month)
 
         def qv(dew, p_hpa):
@@ -130,13 +118,13 @@ class RainPredictor:
             "nasa_cloud_amt": delta("nasa_cloud_amt", om["cloud_cover_mean"], "cloud_cover_mean", lo=0, hi=100),
             "nasa_rh2m": delta("nasa_rh2m", om["rh_mean"], "rh_mean", lo=0, hi=100),
             "nasa_prectotcorr": delta("nasa_prectotcorr", om["precipitation_sum"], "precipitation_sum", lo=0),
-            "nasa_ps": delta("nasa_ps", om["pressure_msl_mean"], "pressure_msl_mean", scale=0.1),  # hPa -> kPa
+            "nasa_ps": delta("nasa_ps", om["pressure_msl_mean"], "pressure_msl_mean", scale=0.1),
             "nasa_qv2m": float(max(0.0, typ.get("nasa_qv2m", np.nan)
                                     + qv(om["dew_point_mean"], om["pressure_msl_mean"])
                                     - qv(typ.get("dew_point_mean", om["dew_point_mean"]), p_typ))),
         }
 
-    # ------------------------------------------------------------ live weather
+    # get today's weather and last 7 days from Open-Meteo
     def live_row(self, city: str):
         lat, lon = CITIES[city]
         params = {
@@ -160,17 +148,15 @@ class RainPredictor:
         today.update(self.nasa_from_openmeteo(city, int(date.month), today))
         X = self.row(city, int(date.month), int(date.dayofyear),
                      {k: v for k, v in today.items() if k in INPUT_COLUMNS and not pd.isna(v)})
-        history = d[["date", "precipitation_sum"]].tail(8).reset_index(drop=True)  # last 7 days + today
+        history = d[["date", "precipitation_sum"]].tail(8).reset_index(drop=True)
         return X, date.date(), history, today
 
-    # ------------------------------------------------------------ predict + explain
+    # probability of rain tomorrow
     def predict(self, X: pd.DataFrame) -> float:
         return float(self.model.predict_proba(X)[:, 1][0])
 
+    # effect of each important feature on this prediction
     def explain(self, X: pd.DataFrame, k: int = 8) -> pd.DataFrame:
-        """Local what-if explanation: for each important feature, replace this day's value with the
-        typical value for the city and month and see how much the rain probability moves.
-        Positive = this feature pushed the prediction towards rain."""
         city, month = X["city"].iloc[0], int(X["month"].iloc[0])
         typ = self.typical(city, month)
         feats = [f for f in self.top_features if f in X.columns and f in typ] or \
@@ -186,8 +172,8 @@ class RainPredictor:
         return out.reindex(out["effect"].abs().sort_values(ascending=False).index).head(k)
 
 
+# check manual inputs are in a realistic range
 def validate_manual(tmax, humidity, dew, pressure, clouds, wind, wind_dir, rain_today, rain_3d, rain_7d) -> list[str]:
-    """Return a list of human-readable problems (empty list = input is valid)."""
     vals = dict(max_temperature=tmax, humidity=humidity, dew_point=dew, pressure=pressure, cloud_cover=clouds,
                 wind=wind, wind_direction=wind_dir, rain_today=rain_today, rain_3_days=rain_3d, rain_7_days=rain_7d)
     missing = [k for k, v in vals.items() if v is None or (isinstance(v, float) and np.isnan(v))]
@@ -213,5 +199,6 @@ def validate_manual(tmax, humidity, dew, pressure, clouds, wind, wind_dir, rain_
     return errs
 
 
+# current time in Pakistan
 def now_pkt() -> datetime:
     return datetime.now(PKT)

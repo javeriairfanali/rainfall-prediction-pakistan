@@ -1,9 +1,3 @@
-"""
-ui.py - the visual building blocks of the RainCast Pakistan Streamlit app:
-HTML cards (gauge, verdict, weather tiles, rain bars, city comparison, about page),
-the explanation chart and the page styling. app.py arranges them on the page.
-"""
-
 from __future__ import annotations
 
 import calendar
@@ -18,6 +12,7 @@ from predictor import LABELS
 
 RAIN, DRY = "#38bdf8", "#fbbf24"
 MONTHS = {m: calendar.month_name[m] for m in range(1, 13)}
+# farming region shown under each city
 CITY_META = {
     "Karachi": "Lower Sindh · coastal farming",
     "Lahore": "Punjab · irrigated plains",
@@ -26,22 +21,22 @@ CITY_META = {
 }
 
 
+# remove extra spaces from HTML
 def compact(h: str) -> str:
-    """One-line HTML (keeps Markdown/HTML renderers from treating indentation as code)."""
     return " ".join(line.strip() for line in h.strip().splitlines())
 
 def esc(x) -> str:
     return html.escape(str(x))
 
 
+# convert wind degrees to a compass direction
 def compass(deg: float) -> str:
     pts = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
     return pts[int(((deg % 360) + 22.5) // 45) % 8]
 
 
-# ============================================================================ HTML building blocks
+# circular gauge showing the rain probability
 def gauge(p: float, thr: float, rain: bool) -> str:
-    """Circular probability gauge with a tick at the decision threshold."""
     r, c = 62, 2 * math.pi * 62
     color = RAIN if rain else DRY
     a = 2 * math.pi * thr - math.pi / 2
@@ -58,6 +53,7 @@ def gauge(p: float, thr: float, rain: bool) -> str:
 </svg>"""
 
 
+# main result card: rain or no rain, probability and farm advice
 def verdict_card(p: float, thr: float, title_line: str, sub: str) -> str:
     rain = p >= thr
     margin = abs(p - thr)
@@ -82,6 +78,7 @@ def verdict_card(p: float, thr: float, title_line: str, sub: str) -> str:
 </div>"""
 
 
+# six small cards with today's weather values
 def tiles(v: dict) -> str:
 
     def f(key, nd=1):
@@ -108,6 +105,7 @@ def tiles(v: dict) -> str:
     return f"<div class='rc-tiles'>{cells}</div>"
 
 
+# bar chart of rain over the last 7 days
 def history_bars(hist: pd.DataFrame) -> str:
     mx = max(5.0, float(hist["precipitation_sum"].max() or 0))
     bars = []
@@ -126,7 +124,7 @@ def empty_state(text: str, icon: str = "🌦️") -> str:
     return f"<div class='rc-empty'><div class='rc-empty-icon'>{icon}</div><div>{esc(text)}</div></div>"
 
 
-
+# chart showing which inputs pushed the prediction up or down
 def explain_plot(P, X: pd.DataFrame):
     ex = P.explain(X, k=8).iloc[::-1]
     fig = Figure(figsize=(6.6, 3.8), dpi=110)
@@ -151,12 +149,12 @@ def explain_plot(P, X: pd.DataFrame):
     return fig
 
 
-
 MANUAL_KEYS = ["temperature_2m_max", "rh_mean", "dew_point_mean", "pressure_msl_mean", "pressure_change_24h",
                "cloud_cover_mean", "wind_speed_10m_max", "wind_direction_10m_dominant",
                "precipitation_sum", "precip_3d_sum", "precip_7d_sum"]
 
 
+# typical values used to pre-fill the manual input form
 def typical_values(P, city, month):
     t = P.typical(city, int(month))
     out = []
@@ -164,7 +162,6 @@ def typical_values(P, city, month):
         v = t.get(k, 0.0)
         v = 0.0 if v is None or pd.isna(v) else float(v)
         out.append(int(round(v)) if k == "wind_direction_10m_dominant" else round(v, 1))
-    # keep the defaults internally consistent (medians of different columns need not agree)
     k = {name: MANUAL_KEYS.index(name) for name in MANUAL_KEYS}
     out[k["dew_point_mean"]] = min(out[k["dew_point_mean"]], out[k["temperature_2m_max"]])
     out[k["precip_3d_sum"]] = max(out[k["precip_3d_sum"]], out[k["precipitation_sum"]])
@@ -172,11 +169,8 @@ def typical_values(P, city, month):
     return out
 
 
-
-
-
+# ranked cards for the compare cities tab
 def compare_html(results: list[tuple[str, float, dict]], thr: float, when: str, failed: list[str]) -> str:
-    """City comparison: results = [(city, probability, today's values), ...]."""
     results = sorted(results, key=lambda r: r[1], reverse=True)
     cards = []
     for rank, (city, p, v) in enumerate(results, 1):
@@ -217,6 +211,7 @@ def stats_strip(P) -> str:
     return "".join(f"<div class='rc-stat'><b>{a}</b><span>{b}</span></div>" for a, b in items)
 
 
+# header at the top of the page
 def hero(P) -> str:
     drops = "".join(
         f"<i style='left:{(i * 37) % 100}%;animation-delay:{(i * 0.23) % 2:.2f}s;"
@@ -237,6 +232,7 @@ def hero(P) -> str:
 </div>"""
 
 
+# content of the about the model tab
 def about_html(P) -> str:
     m = P.meta
     tm, pb = m["test_metrics"], m["test_persistence_baseline"]
@@ -294,8 +290,6 @@ def about_html(P) -> str:
 </div>"""
 
 
-
-
 FOOTER = """
 <div class="rc-footer">
   <a href="https://open-meteo.com/" target="_blank">Weather data by Open-Meteo.com</a> ·
@@ -304,12 +298,13 @@ FOOTER = """
 """
 
 
+# styling for the whole app
 CSS = """@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
 /* ---------- page (Streamlit) ---------- */
 html, body, .stApp, .stMarkdown, button, input, label, p {font-family:'Plus Jakarta Sans', system-ui, sans-serif;}
 .stApp {background: radial-gradient(1200px 600px at 10% -10%, rgba(14,165,233,.14), transparent 60%),
                     radial-gradient(900px 500px at 100% 0%, rgba(99,102,241,.14), transparent 60%), #070d1a;}
-.block-container {max-width:1220px; padding-top:1.6rem;}
+.block-container, [data-testid="stMainBlockContainer"] {max-width:1220px; padding-top:1.6rem; padding-bottom:1.2rem !important;}
 header[data-testid="stHeader"] {background:transparent;}
 #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"], .stDeployButton {display:none !important;}
 a {color:#7dd3fc;}
@@ -421,7 +416,7 @@ a {color:#7dd3fc;}
   border:1px solid rgba(56,189,248,.25); color:#bae6fd;}
 .rc-list {margin:0; padding-left:18px; color:#cbd5e1; line-height:1.7; font-size:.9rem;}
 .rc-section {font-weight:700; color:#7dd3fc; font-size:.82rem; text-transform:uppercase; letter-spacing:.06em; margin:6px 0 -4px;}
-.rc-footer {text-align:center; color:#64748b; font-size:.8rem; margin-top:6px;}
+.rc-footer {text-align:center; color:#64748b; font-size:.8rem; margin:6px 0 0;}
 @media (max-width: 820px) {
   .rc-tiles, .rc-cmps, .rc-kpis {grid-template-columns:repeat(2,1fr);}
   .rc-grid2 {grid-template-columns:1fr;}
