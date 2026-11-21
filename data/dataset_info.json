@@ -1,0 +1,56 @@
+{
+  "file": "weather_pakistan.csv",
+  "rows": 7304,
+  "input_features": 16,
+  "features": [
+    "city",
+    "month",
+    "nasa_cloud_amt",
+    "nasa_prectotcorr",
+    "pressure_change_24h",
+    "precip_3d_sum",
+    "nasa_qv2m",
+    "cloud_cover_mean",
+    "pressure_msl_mean",
+    "nasa_ps",
+    "precipitation_sum",
+    "nasa_rh2m",
+    "wind_speed_10m_max",
+    "wind_direction_10m_dominant",
+    "temperature_2m_max",
+    "precip_7d_sum"
+  ],
+  "all_collected_features": 40,
+  "cities": [
+    "Karachi",
+    "Quetta",
+    "Lahore",
+    "Islamabad"
+  ],
+  "period": "2020-01-01 to 2024-12-31 (raw download 2010-2024)",
+  "downloaded_on_utc": "2026-11-20 19:45",
+  "target": "rain_tomorrow = 1 if next-day precipitation >= 1 mm",
+  "rain_rate": 0.1673,
+  "sources": [
+    {
+      "name": "Open-Meteo Historical Weather API (ERA5 / ERA5-Land reanalysis)",
+      "url": "https://open-meteo.com/en/docs/historical-weather-api",
+      "method": "HTTP GET per city, daily + hourly variables, timezone Asia/Karachi",
+      "licence": "CC BY 4.0 (https://open-meteo.com/en/licence)",
+      "citation": "Zippenfenig, P. (2023). Open-Meteo.com Weather API. Zenodo. doi:10.5281/zenodo.7970649"
+    },
+    {
+      "name": "NASA POWER Daily Point API (MERRA-2 / CERES)",
+      "url": "https://power.larc.nasa.gov/docs/services/api/temporal/daily/",
+      "method": "HTTP GET per city, community=AG, 10 parameters",
+      "licence": "No restrictions on use; acknowledgement requested (https://power.larc.nasa.gov/docs/referencing/)",
+      "citation": "NASA Langley Research Center (LaRC) POWER Project, funded through the NASA Earth Science Division."
+    }
+  ],
+  "personal_identifiers": "none (weather values per city and date only)",
+  "raw_missing_values_in_period": {
+    "total": 0,
+    "note": "NASA POWER -999 flags and Open-Meteo nulls, counted after merging, before feature engineering"
+  },
+  "collection_note": "Raw API responses were fetched on 2026-11-20 with the exact requests in src/download_data.py (same URLs and parameters, run from a web browser because of a network restriction), cached in data/raw/, then merged by src/download_data.py. Re-running the script reproduces the dataset."
+}

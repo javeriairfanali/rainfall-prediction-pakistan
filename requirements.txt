@@ -1,0 +1,22 @@
+# Python 3.13 (also works on 3.14 locally)
+# Core ML stack - exact versions used to train the saved model.
+# The deployed Streamlit app (app/requirements.txt) uses the SAME versions,
+# otherwise joblib.load() of the pipeline can fail.
+numpy==2.5.3
+pandas==3.0.5
+scikit-learn==1.9.1
+scipy==1.18.1
+joblib==1.6.0
+
+# EDA / plots
+matplotlib==3.11.2
+seaborn==0.13.2
+
+# Data collection
+requests==2.34.2
+
+# App (Streamlit)
+streamlit==1.67.0
+
+# Notebook
+jupyterlab
