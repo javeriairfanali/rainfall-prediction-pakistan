@@ -79,27 +79,28 @@ tab_live, tab_compare, tab_manual, tab_about = st.tabs(
 
 # ----------------------------------------------------------------------------- 1. live forecast
 with tab_live:
-    left, right = st.columns([4, 7], gap="large")
-    with left:
-        city = st.segmented_control(
-            "Choose a city", CITIES, default=DEFAULT_CITY, key="live_city")
-        city = city or DEFAULT_CITY
-        region = ui.CITY_META.get(city, "")
-        st.caption(region)
-        st.caption("Today's observed + forecast weather and the past 7 days are fetched live from "
-                   "Open-Meteo to predict **tomorrow** (rain = at least 1 mm).")
-    with right:
-        try:
-            with st.spinner(f"Fetching today's weather for {city}…"):
-                X, day, hist, shown = live_weather(city)
-            p = P.predict(X)
-            tomorrow = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%A, %d %B %Y")
+    # city picker across the top, then results in two balanced columns
+    city = st.segmented_control(
+        "Choose a city", CITIES, default=DEFAULT_CITY, key="live_city")
+    city = city or DEFAULT_CITY
+    region = ui.CITY_META.get(city, "")
+    st.caption(f"{region} · Today's observed + forecast weather and the past 7 days are fetched live from "
+               "Open-Meteo to predict **tomorrow** (rain = at least 1 mm).")
+    try:
+        with st.spinner(f"Fetching today's weather for {city}…"):
+            X, day, hist, shown = live_weather(city)
+        p = P.predict(X)
+        tomorrow = (pd.Timestamp(day) + pd.Timedelta(days=1)).strftime("%A, %d %B %Y")
+        left, right = st.columns(2, gap="large")
+        with left:
             show(ui.verdict_card(p, P.threshold, f"{city} · {region}", f"Forecast for {tomorrow}")
-                 + ui.tiles(shown) + ui.history_bars(hist))
+                 + ui.tiles(shown))
+        with right:
+            show(ui.history_bars(hist))
             st.pyplot(ui.explain_plot(P, X))
-        except requests.RequestException:
-            st.error("Couldn't reach the live weather service (Open-Meteo). Please try again in a minute, "
-                     "or use the Manual input tab.")
+    except requests.RequestException:
+        st.error("Couldn't reach the live weather service (Open-Meteo). Please try again in a minute, "
+                 "or use the Manual input tab.")
 
 # ----------------------------------------------------------------------------- 2. compare cities
 with tab_compare:
