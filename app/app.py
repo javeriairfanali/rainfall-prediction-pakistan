@@ -175,7 +175,7 @@ with tab_about:
     figs = [("09_roc_pr_curves.png", "ROC and precision–recall curves (validation 2023)"),
             ("12_test_confusion_roc.png", "Confusion matrix and ROC curve (test 2024)"),
             ("14_feature_importance.png", "Permutation feature importance"),
-            ("06_seasonality_city_month.png", "Chance of rain by city and month")]
+            ("10_learning_curve.png", "Learning curve (over-/under-fitting check)")]
     figs = [(FIGURES / f, cap) for f, cap in figs if (FIGURES / f).exists()]
     if figs:
         st.markdown("**📈 Evaluation figures**")

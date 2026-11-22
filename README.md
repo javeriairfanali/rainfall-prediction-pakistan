@@ -36,7 +36,7 @@ Full provenance (collection method, licences, download date) is in [`data/README
 `data/dataset_info.json`. No personal data.
 
 ## ML lifecycle (all in `notebooks/rainfall_prediction.ipynb`)
-1. **EDA:** class balance, missing values, distributions, outliers, correlations, seasonality, predictors vs. target (7 plots).
+1. **EDA:** class balance, missing values, distributions, outliers, correlations (5 plots).
 2. **Pre-processing in one scikit-learn `Pipeline`:** feature engineering → 1–99 % clipping → median imputation → scaling + one-hot. Fitted on training data only, so there is no leakage.
 3. **Time-ordered split:** train 2020–2022, validation 2023, test 2024.
 4. **Models:** dummy and persistence baselines, plus Logistic Regression, KNN, Random Forest and SVM (RBF kernel).
