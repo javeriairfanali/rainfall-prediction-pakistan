@@ -172,7 +172,7 @@ with tab_manual:
 # tab 4: model details, scores and plots
 with tab_about:
     show(ui.about_html(P))
-    figs = [("09_roc_pr_curves.png", "ROC and precision–recall curves (validation 2023)"),
+    figs = [("08_model_comparison.png", "Model comparison (validation 2023)"),
             ("12_test_confusion_roc.png", "Confusion matrix and ROC curve (test 2024)"),
             ("14_feature_importance.png", "Permutation feature importance"),
             ("10_learning_curve.png", "Learning curve (over-/under-fitting check)")]
